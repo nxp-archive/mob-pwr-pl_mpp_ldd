@@ -12,11 +12,16 @@
 struct vc4_dev {
 	struct drm_device *dev;
 
+	bool firmware_kms;
+	struct rpi_firmware *firmware;
+
 	struct vc4_hdmi *hdmi;
 	struct vc4_hvs *hvs;
 	struct vc4_crtc *crtc[3];
 	struct vc4_v3d *v3d;
 	struct vc4_dpi *dpi;
+	struct vc4_dsi *dsi1;
+	struct vc4_vec *vec;
 
 	struct drm_fbdev_cma *fbdev;
 
@@ -92,12 +97,23 @@ struct vc4_dev {
 	 */
 	struct list_head seqno_cb_list;
 
-	/* The binner overflow memory that's currently set up in
-	 * BPOA/BPOS registers.  When overflow occurs and a new one is
-	 * allocated, the previous one will be moved to
-	 * vc4->current_exec's free list.
+	/* The memory used for storing binner tile alloc, tile state,
+	 * and overflow memory allocations.  This is freed when V3D
+	 * powers down.
 	 */
-	struct vc4_bo *overflow_mem;
+	struct vc4_bo *bin_bo;
+
+	/* Size of blocks allocated within bin_bo. */
+	uint32_t bin_alloc_size;
+
+	/* Bitmask of the bin_alloc_size chunks in bin_bo that are
+	 * used.
+	 */
+	uint32_t bin_alloc_used;
+
+	/* Bitmask of the current bin_alloc used for overflow memory. */
+	uint32_t bin_alloc_overflow;
+
 	struct work_struct overflow_mem_work;
 
 	int power_refcount;
@@ -131,6 +147,8 @@ struct vc4_bo {
 	 * writes.
 	 */
 	uint64_t write_seqno;
+
+	bool t_format;
 
 	/* List entry for the BO's position in either
 	 * vc4_exec_info->unref_list or vc4_dev->bo_cache.time_list
@@ -290,8 +308,12 @@ struct vc4_exec_info {
 	bool found_increment_semaphore_packet;
 	bool found_flush;
 	uint8_t bin_tiles_x, bin_tiles_y;
-	struct drm_gem_cma_object *tile_bo;
+	/* Physical address of the start of the tile alloc array
+	 * (where each tile's binned CL will start)
+	 */
 	uint32_t tile_alloc_offset;
+	/* Bitmask of which binner slots are freed when this job completes. */
+	uint32_t bin_slots;
 
 	/**
 	 * Computed addresses pointing into exec_bo where we start the
@@ -382,6 +404,8 @@ struct vc4_validated_shader_info {
 
 	uint32_t num_uniform_addr_offsets;
 	uint32_t *uniform_addr_offsets;
+
+	bool is_threaded;
 };
 
 /**
@@ -428,6 +452,10 @@ int vc4_create_shader_bo_ioctl(struct drm_device *dev, void *data,
 			       struct drm_file *file_priv);
 int vc4_mmap_bo_ioctl(struct drm_device *dev, void *data,
 		      struct drm_file *file_priv);
+int vc4_set_tiling_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv);
+int vc4_get_tiling_ioctl(struct drm_device *dev, void *data,
+			 struct drm_file *file_priv);
 int vc4_get_hang_state_ioctl(struct drm_device *dev, void *data,
 			     struct drm_file *file_priv);
 int vc4_mmap(struct file *filp, struct vm_area_struct *vma);
@@ -462,6 +490,14 @@ void __iomem *vc4_ioremap_regs(struct platform_device *dev, int index);
 extern struct platform_driver vc4_dpi_driver;
 int vc4_dpi_debugfs_regs(struct seq_file *m, void *unused);
 
+/* vc4_dsi.c */
+extern struct platform_driver vc4_dsi_driver;
+int vc4_dsi_debugfs_regs(struct seq_file *m, void *unused);
+
+/* vc4_firmware_kms.c */
+extern struct platform_driver vc4_firmware_kms_driver;
+void vc4_fkms_cancel_page_flip(struct drm_crtc *crtc, struct drm_file *file);
+
 /* vc4_gem.c */
 void vc4_gem_init(struct drm_device *dev);
 void vc4_gem_destroy(struct drm_device *dev);
@@ -484,6 +520,10 @@ int vc4_queue_seqno_cb(struct drm_device *dev,
 /* vc4_hdmi.c */
 extern struct platform_driver vc4_hdmi_driver;
 int vc4_hdmi_debugfs_regs(struct seq_file *m, void *unused);
+
+/* vc4_hdmi.c */
+extern struct platform_driver vc4_vec_driver;
+int vc4_vec_debugfs_regs(struct seq_file *m, void *unused);
 
 /* vc4_irq.c */
 irqreturn_t vc4_irq(int irq, void *arg);
@@ -512,6 +552,7 @@ void vc4_plane_async_set_fb(struct drm_plane *plane,
 extern struct platform_driver vc4_v3d_driver;
 int vc4_v3d_debugfs_ident(struct seq_file *m, void *unused);
 int vc4_v3d_debugfs_regs(struct seq_file *m, void *unused);
+int vc4_v3d_get_bin_slot(struct vc4_dev *vc4);
 
 /* vc4_validate.c */
 int

@@ -81,6 +81,8 @@ static int vc4_get_param_ioctl(struct drm_device *dev, void *data,
 		pm_runtime_put_autosuspend(&vc4->v3d->pdev->dev);
 		break;
 	case DRM_VC4_PARAM_SUPPORTS_BRANCHES:
+	case DRM_VC4_PARAM_SUPPORTS_ETC1:
+	case DRM_VC4_PARAM_SUPPORTS_THREADED_FS:
 		args->value = true;
 		break;
 	default:
@@ -122,6 +124,8 @@ static const struct drm_ioctl_desc vc4_drm_ioctls[] = {
 	DRM_IOCTL_DEF_DRV(VC4_GET_HANG_STATE, vc4_get_hang_state_ioctl,
 			  DRM_ROOT_ONLY),
 	DRM_IOCTL_DEF_DRV(VC4_GET_PARAM, vc4_get_param_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_SET_TILING, vc4_set_tiling_ioctl, DRM_RENDER_ALLOW),
+	DRM_IOCTL_DEF_DRV(VC4_GET_TILING, vc4_get_tiling_ioctl, DRM_RENDER_ALLOW),
 };
 
 static struct drm_driver vc4_drm_driver = {
@@ -292,9 +296,12 @@ static const struct component_master_ops vc4_drm_ops = {
 
 static struct platform_driver *const component_drivers[] = {
 	&vc4_hdmi_driver,
+	&vc4_vec_driver,
 	&vc4_dpi_driver,
+	&vc4_dsi_driver,
 	&vc4_hvs_driver,
 	&vc4_crtc_driver,
+	&vc4_firmware_kms_driver,
 	&vc4_v3d_driver,
 };
 
