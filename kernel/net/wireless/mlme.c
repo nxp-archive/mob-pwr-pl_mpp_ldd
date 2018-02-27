@@ -149,6 +149,18 @@ void cfg80211_assoc_timeout(struct net_device *dev, struct cfg80211_bss *bss)
 }
 EXPORT_SYMBOL(cfg80211_assoc_timeout);
 
+void cfg80211_abandon_assoc(struct net_device *dev, struct cfg80211_bss *bss)
+{
+	struct wireless_dev *wdev = dev->ieee80211_ptr;
+	struct wiphy *wiphy = wdev->wiphy;
+
+	cfg80211_sme_abandon_assoc(wdev);
+
+	cfg80211_unhold_bss(bss_from_pub(bss));
+	cfg80211_put_bss(wiphy, bss);
+}
+EXPORT_SYMBOL(cfg80211_abandon_assoc);
+
 void cfg80211_tx_mlme_mgmt(struct net_device *dev, const u8 *buf, size_t len)
 {
 	struct wireless_dev *wdev = dev->ieee80211_ptr;
@@ -222,7 +234,7 @@ int cfg80211_mlme_auth(struct cfg80211_registered_device *rdev,
 	ASSERT_WDEV_LOCK(wdev);
 
 	if (auth_type == NL80211_AUTHTYPE_SHARED_KEY)
-		if (!key || !key_len || key_idx < 0 || key_idx > 4)
+		if (!key || !key_len || key_idx < 0 || key_idx > 3)
 			return -EINVAL;
 
 	if (wdev->current_bss &&
@@ -634,6 +646,7 @@ int cfg80211_mlme_mgmt_tx(struct cfg80211_registered_device *rdev,
 			 * fall through, P2P device only supports
 			 * public action frames
 			 */
+		case NL80211_IFTYPE_NAN:
 		default:
 			err = -EOPNOTSUPP;
 			break;
@@ -711,7 +724,7 @@ EXPORT_SYMBOL(cfg80211_rx_mgmt);
 
 void cfg80211_dfs_channels_update_work(struct work_struct *work)
 {
-	struct delayed_work *delayed_work;
+	struct delayed_work *delayed_work = to_delayed_work(work);
 	struct cfg80211_registered_device *rdev;
 	struct cfg80211_chan_def chandef;
 	struct ieee80211_supported_band *sband;
@@ -721,13 +734,12 @@ void cfg80211_dfs_channels_update_work(struct work_struct *work)
 	unsigned long timeout, next_time = 0;
 	int bandid, i;
 
-	delayed_work = container_of(work, struct delayed_work, work);
 	rdev = container_of(delayed_work, struct cfg80211_registered_device,
 			    dfs_update_channels_wk);
 	wiphy = &rdev->wiphy;
 
 	rtnl_lock();
-	for (bandid = 0; bandid < IEEE80211_NUM_BANDS; bandid++) {
+	for (bandid = 0; bandid < NUM_NL80211_BANDS; bandid++) {
 		sband = wiphy->bands[bandid];
 		if (!sband)
 			continue;

@@ -77,7 +77,7 @@ pte_t *huge_pte_alloc(struct mm_struct *mm,
 		else {
 			if (sz != PAGE_SIZE << huge_shift[HUGE_SHIFT_PAGE])
 				panic("Unexpected page size %#lx\n", sz);
-			return pte_alloc_map(mm, NULL, pmd, addr);
+			return pte_alloc_map(mm, pmd, addr);
 		}
 	}
 #else
@@ -232,7 +232,7 @@ unsigned long hugetlb_get_unmapped_area(struct file *file, unsigned long addr,
 		addr = ALIGN(addr, huge_page_size(h));
 		vma = find_vma(mm, addr);
 		if (TASK_SIZE - len >= addr &&
-		    (!vma || addr + len <= vma->vm_start))
+		    (!vma || addr + len <= vm_start_gap(vma)))
 			return addr;
 	}
 	if (current->mm->get_unmapped_area == arch_get_unmapped_area)
@@ -308,11 +308,16 @@ static bool saw_hugepagesz;
 
 static __init int setup_hugepagesz(char *opt)
 {
+	int rc;
+
 	if (!saw_hugepagesz) {
 		saw_hugepagesz = true;
 		memset(huge_shift, 0, sizeof(huge_shift));
 	}
-	return __setup_hugepagesz(memparse(opt, NULL));
+	rc = __setup_hugepagesz(memparse(opt, NULL));
+	if (rc)
+		hugetlb_bad_size();
+	return rc;
 }
 __setup("hugepagesz=", setup_hugepagesz);
 

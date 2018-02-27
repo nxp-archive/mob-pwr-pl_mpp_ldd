@@ -21,6 +21,8 @@ s64 perf_atoll(const char *str)
 		case 'b': case 'B':
 			if (*p)
 				goto out_err;
+
+			__fallthrough;
 		case '\0':
 			return length;
 		default:
@@ -340,22 +342,6 @@ char *rtrim(char *s)
 	*(end + 1) = '\0';
 
 	return s;
-}
-
-/**
- * memdup - duplicate region of memory
- * @src: memory region to duplicate
- * @len: memory region length
- */
-void *memdup(const void *src, size_t len)
-{
-	void *p;
-
-	p = malloc(len);
-	if (p)
-		memcpy(p, src, len);
-
-	return p;
 }
 
 char *asprintf_expr_inout_ints(const char *var, bool in, size_t nints, int *ints)

@@ -74,13 +74,14 @@ qla24xx_deallocate_vp_id(scsi_qla_host_t *vha)
 	 * ensures no active vp_list traversal while the vport is removed
 	 * from the queue)
 	 */
+	wait_event_timeout(vha->vref_waitq, atomic_read(&vha->vref_count),
+	    10*HZ);
+
 	spin_lock_irqsave(&ha->vport_slock, flags);
-	while (atomic_read(&vha->vref_count)) {
-		spin_unlock_irqrestore(&ha->vport_slock, flags);
-
-		msleep(500);
-
-		spin_lock_irqsave(&ha->vport_slock, flags);
+	if (atomic_read(&vha->vref_count)) {
+		ql_dbg(ql_dbg_vport, vha, 0xfffa,
+		    "vha->vref_count=%u timeout\n", vha->vref_count.counter);
+		vha->vref_count = (atomic_t)ATOMIC_INIT(0);
 	}
 	list_del(&vha->list);
 	qlt_update_vp_map(vha, RESET_VP_IDX);
@@ -269,6 +270,7 @@ qla2x00_alert_all_vps(struct rsp_que *rsp, uint16_t *mb)
 
 			spin_lock_irqsave(&ha->vport_slock, flags);
 			atomic_dec(&vha->vref_count);
+			wake_up(&vha->vref_waitq);
 		}
 		i++;
 	}
@@ -600,7 +602,7 @@ qla25xx_delete_queues(struct scsi_qla_host *vha)
 	/* Delete request queues */
 	for (cnt = 1; cnt < ha->max_req_queues; cnt++) {
 		req = ha->req_q_map[cnt];
-		if (req) {
+		if (req && test_bit(cnt, ha->req_qid_map)) {
 			ret = qla25xx_delete_req_que(vha, req);
 			if (ret != QLA_SUCCESS) {
 				ql_log(ql_log_warn, vha, 0x00ea,
@@ -614,7 +616,7 @@ qla25xx_delete_queues(struct scsi_qla_host *vha)
 	/* Delete response queues */
 	for (cnt = 1; cnt < ha->max_rsp_queues; cnt++) {
 		rsp = ha->rsp_q_map[cnt];
-		if (rsp) {
+		if (rsp && test_bit(cnt, ha->rsp_qid_map)) {
 			ret = qla25xx_delete_rsp_que(vha, rsp);
 			if (ret != QLA_SUCCESS) {
 				ql_log(ql_log_warn, vha, 0x00eb,

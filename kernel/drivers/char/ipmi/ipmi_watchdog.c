@@ -1140,7 +1140,7 @@ ipmi_nmi(unsigned int val, struct pt_regs *regs)
 		   the timer.   So do so. */
 		pretimeout_since_last_heartbeat = 1;
 		if (atomic_inc_and_test(&preop_panic_excl))
-			panic(PFX "pre-timeout");
+			nmi_panic(regs, PFX "pre-timeout");
 	}
 
 	return NMI_HANDLED;
@@ -1162,10 +1162,11 @@ static int wdog_reboot_handler(struct notifier_block *this,
 			ipmi_watchdog_state = WDOG_TIMEOUT_NONE;
 			ipmi_set_timeout(IPMI_SET_TIMEOUT_NO_HB);
 		} else if (ipmi_watchdog_state != WDOG_TIMEOUT_NONE) {
-			/* Set a long timer to let the reboot happens, but
-			   reboot if it hangs, but only if the watchdog
+			/* Set a long timer to let the reboot happen or
+			   reset if it hangs, but only if the watchdog
 			   timer was already running. */
-			timeout = 120;
+			if (timeout < 120)
+				timeout = 120;
 			pretimeout = 0;
 			ipmi_watchdog_state = WDOG_TIMEOUT_RESET;
 			ipmi_set_timeout(IPMI_SET_TIMEOUT_NO_HB);

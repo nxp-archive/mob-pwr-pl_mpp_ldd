@@ -64,6 +64,14 @@
 #define TA_DEFAULT_FABRIC_PROT_TYPE	0
 /* TPG status needs to be enabled to return sendtargets discovery endpoint info */
 #define TA_DEFAULT_TPG_ENABLED_SENDTARGETS 1
+/*
+ * Used to control the sending of keys with optional to respond state bit,
+ * as a workaround for non RFC compliant initiators,that do not propose,
+ * nor respond to specific keys required for login to complete.
+ *
+ * See iscsi_check_proposer_for_optional_reply() for more details.
+ */
+#define TA_DEFAULT_LOGIN_KEYS_WORKAROUND 1
 
 #define ISCSI_IOV_DATA_BUFFER		5
 
@@ -74,6 +82,7 @@ enum iscsit_transport_type {
 	ISCSI_IWARP_TCP				= 3,
 	ISCSI_IWARP_SCTP			= 4,
 	ISCSI_INFINIBAND			= 5,
+	ISCSI_CXGBIT				= 6,
 };
 
 /* RFC-3720 7.1.4  Standard Connection State Diagram for a Target */
@@ -570,8 +579,8 @@ struct iscsi_conn {
 	spinlock_t		response_queue_lock;
 	spinlock_t		state_lock;
 	/* libcrypto RX and TX contexts for crc32c */
-	struct hash_desc	conn_rx_hash;
-	struct hash_desc	conn_tx_hash;
+	struct ahash_request	*conn_rx_hash;
+	struct ahash_request	*conn_tx_hash;
 	/* Used for scheduling TX and RX connection kthreads */
 	cpumask_var_t		conn_cpumask;
 	unsigned int		conn_rx_reset_cpumask:1;
@@ -765,6 +774,7 @@ struct iscsi_tpg_attrib {
 	u8			t10_pi;
 	u32			fabric_prot_type;
 	u32			tpg_enabled_sendtargets;
+	u32			login_keys_workaround;
 	struct iscsi_portal_group *tpg;
 };
 
@@ -890,4 +900,30 @@ static inline u32 session_get_next_ttt(struct iscsi_session *session)
 }
 
 extern struct iscsi_cmd *iscsit_find_cmd_from_itt(struct iscsi_conn *, itt_t);
+
+static inline void iscsit_thread_check_cpumask(
+	struct iscsi_conn *conn,
+	struct task_struct *p,
+	int mode)
+{
+	/*
+	 * mode == 1 signals iscsi_target_tx_thread() usage.
+	 * mode == 0 signals iscsi_target_rx_thread() usage.
+	 */
+	if (mode == 1) {
+		if (!conn->conn_tx_reset_cpumask)
+			return;
+		conn->conn_tx_reset_cpumask = 0;
+	} else {
+		if (!conn->conn_rx_reset_cpumask)
+			return;
+		conn->conn_rx_reset_cpumask = 0;
+	}
+	/*
+	 * Update the CPU mask for this single kthread so that
+	 * both TX and RX kthreads are scheduled to run on the
+	 * same CPU.
+	 */
+	set_cpus_allowed_ptr(p, conn->conn_cpumask);
+}
 #endif /* ISCSI_TARGET_CORE_H */
