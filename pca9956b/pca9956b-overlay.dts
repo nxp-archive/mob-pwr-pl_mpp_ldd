@@ -1,0 +1,34 @@
+// Device tree overlay for I2C connected Goodix gt9271 multiple touch controller
+/dts-v1/;
+/plugin/;
+
+/ {
+  compatible = "brcm,bcm2835";
+
+	fragment@0 {
+		target = <&i2c_arm>;
+		__overlay__ {
+			status = "okay";
+			
+			#address-cells = <1>;
+			#size-cells = <0>;
+			
+			pca9956b: nxp-ledseg-i2c@7d {
+				compatible = "nxp,pca9956b";
+				reg = <0x7d>;
+
+				pca9956b,support_initialize = <1>;
+				pca9956b,MODE1 = <0x09>;
+				pca9956b,MODE2 = <0x05>;
+
+				pca9956b,LEDOUT0 = <0xAA>;
+				pca9956b,LEDOUT1 = <0xAA>;
+				pca9956b,LEDOUT2 = <0xAA>;
+				pca9956b,LEDOUT3 = <0xFF>;
+				pca9956b,LEDOUT4 = <0xFF>;
+				pca9956b,LEDOUT5 = <0xFF>;
+				pca9956b,defaultIREF = <0x2f>;
+			};
+		};
+	};
+};
