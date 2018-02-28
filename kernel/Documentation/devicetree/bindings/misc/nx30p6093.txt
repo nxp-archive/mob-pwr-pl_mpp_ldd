@@ -1,0 +1,20 @@
+Binding for NXP NX30P6093 OVP
+
+Required properties:
+- compatible: Should contain one of the following:
+    * "nxp,nx30p6093"
+- reg: integer, i2c address of the device.
+	   It should be "0x36"
+- nx30p6093,irq-gpio: integer, AP gpio number;
+- nx30p6093,en-gpio: integer, AP gpio number;
+- nx30p6093,vin-tag-voltage: integer, uV unit;
+
+Example:
+nx30p6093@36 {
+        compatible = "nxp,nx30p6093";
+        reg = <0x36>;
+		
+        nx30p6093,irq-gpio = <xxx>;
+        nx30p6093,en-gpio = <yyy>;
+		nx30p6093,vin-tag-voltage = <1820000>;	// 1.82V
+};

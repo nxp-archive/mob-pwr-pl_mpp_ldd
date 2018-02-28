@@ -1,0 +1,26 @@
+Binding for NXP PCA9468 2:1 Direct Charger
+
+Required properties:
+- compatible: Should contain one of the following:
+    * "nxp,pca9468"
+- reg: integer, i2c address of the device.
+	   It depends on ADD pin state.
+	   ADD:high-0x55, ADD:low-0x57, ADD:Hi-Z-0x5E
+- pca9468,irq-gpio: integer, AP gpio number;
+- pca9468,input-current-limit: integer, input current limit (in uA);
+- pca9468,charging-current: integer, charging current (in uA);
+- pca9468,float-voltage: integer, charging float voltage (in uV);
+- pca9468,sense-resistance: integer, 0-5mOhm, 1-10mOhm
+
+Example:
+pca9468@57 {
+        compatible = "nxp,pca9468";
+        reg = <0x57>;
+		usbpd-phy = <&pmi8998_pdphy>;
+		
+        pca9468,irq-gpio = <xxx>;
+        pca9468,input-current-limit = <2500000>;
+        pca9468,charging-current = <6000000>;
+        pca9468,float-voltage = <4350000>;
+        pca9468,sense-resistance = <1>;
+};

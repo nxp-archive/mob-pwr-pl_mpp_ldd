@@ -501,6 +501,20 @@ config CHARGER_RT9455
 	help
 	  Say Y to enable support for Richtek RT9455 battery charger.
 
+config CHARGER_PCA9468
+	tristate "NXP PCA9468 battery charger driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y to enable support for NXP PCA9468 battery charger.
+
+config CHARGER_PCA9491
+	tristate "NXP PCA9491 battery charger driver"
+	depends on I2C
+	select REGMAP_I2C
+	help
+	  Say Y to enable support for NXP PCA9491 battery charger.
+
 config AXP20X_POWER
 	tristate "AXP20x power supply driver"
 	depends on MFD_AXP20X

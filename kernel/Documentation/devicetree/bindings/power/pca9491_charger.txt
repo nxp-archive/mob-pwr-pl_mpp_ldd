@@ -1,0 +1,38 @@
+Binding for NXP PCA9491 1:1 Direct Charger
+
+Required properties:
+- compatible: Should contain one of the following:
+    * "nxp,pca9491"
+- reg: integer, i2c address of the device.
+	   It depends on ADD pin state.
+	   ADD:high-0x65, ADD:Hi-Z-0x66, ADD:low-0x67
+- pca9491,irq-gpio: integer, AP gpio number;
+- pca9491,en-gpio: integer, AP gpio number;
+- pca9491,input-current-limit: integer, input current limit (in uA);
+- pca9491,charging-current: integer, charging current (in uA);
+- pca9491,float-voltage: integer, charging float voltage (in uV);
+- pca9491,topoff-current: integer, topoff current (in uA);
+- pca9491,sense-resistor: integer, 0-5mOhm, 1-10mOhm
+- pca9491,vbus-ovp: integer, vbus overvoltage threshold (in uV);
+- pca9491,vout-reg: integer, vout regulator loop threshold (in uV);
+- pca9491,vdrop-ovp: integer, vdrop overvoltage threshold (in uV);
+- pca9491,vdrop-alarm: integer, vdrop alarm threshold (in uV)
+
+Example:
+pca9491@67 {
+        compatible = "nxp,pca9491";
+        reg = <0x67>;
+		usbpd-phy = <&pmi8998_pdphy>;
+		
+        pca9491,irq-gpio = <xxx>;
+	pca9491,en-gpio = <yyy>;
+        pca9491,input-current-limit = <2500000>;
+        pca9491,charging-current = <6000000>;
+        pca9491,float-voltage = <4350000>;
+	pca9491,topoff-current = <500000>;
+        pca9491,sense-resistor = <1>;
+	pca9491,vbus-ovp = <5500000>;
+	pca9491,vout-reg = <4500000>;
+	pca9491,vdrop-ovp = <300000>;
+	pca9491,vdrop-alarm = <100000>;
+};
